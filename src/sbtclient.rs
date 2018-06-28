@@ -3,6 +3,20 @@ pub struct SbtClientError {
     pub message: String
 }
 
+#[derive(Serialize, Debug)]
+pub struct CommandParams {
+    #[serde(rename = "commandLine")]
+    pub command_line: String
+}
+
+#[derive(Serialize, Debug)]
+pub struct Command {
+    pub jsonrpc: String,
+    pub id: i32,
+    pub method: String,
+    pub params: CommandParams
+}
+
 #[derive(Deserialize, Debug)]
 pub struct CommandResult {
     pub status: String,

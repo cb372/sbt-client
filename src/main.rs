@@ -8,8 +8,7 @@ extern crate ansi_term;
 #[macro_use]
 extern crate serde_derive;
 
-use sbtclient::Message;
-use sbtclient::SbtClientError;
+use sbtclient::{Command, CommandParams, Message, SbtClientError};
 use sbtclient::Message::*;
 
 use std::os::unix::net::UnixStream;
@@ -36,17 +35,22 @@ fn main() {
 }
 
 fn run(sbt_command_line: String) -> Result<(), SbtClientError> {
-    // TODO use serde_json instead of hand-writing json like a loser
-    let json_rpc_command = format!(
-        r#"{{ "jsonrpc": "2.0", "id": 1, "method": "sbt/exec", "params": {{ "commandLine": "{}" }} }}"#,
-        sbt_command_line
-    );
 
     // TODO read the socket URI from active.json
     // TODO Fork an sbt server if no project/target/active.json file exists
     let mut stream = create_stream("/Users/chris/.sbt/1.0/server/9f10750f3bdedd1e263b/sock")?;
 
-    stream.write_all(&with_content_length_header(&json_rpc_command))
+    let command = Command {
+        jsonrpc: "2.0".to_string(),
+        id: 1,
+        method: "sbt/exec".to_string(),
+        params: CommandParams {
+            command_line: sbt_command_line
+        }
+    };
+    let command_json = serde_json::to_string(&command)
+        .map_err(|e| detailed_error("Failed to serialize command to JSON", e))?;
+    stream.write_all(&with_content_length_header(&command_json))
         .map_err(|e| detailed_error("Failed to write command to Unix socket", e))?;
 
     let mut received_result = false;
