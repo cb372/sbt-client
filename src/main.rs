@@ -9,11 +9,13 @@ extern crate ansi_term;
 extern crate serde_derive;
 
 use sbtclient::Message;
+use sbtclient::SbtClientError;
 use sbtclient::Message::*;
 
 use std::os::unix::net::UnixStream;
 use std::io::prelude::*;
 use std::env;
+use std::fmt::Display;
 
 use regex::Regex;
 
@@ -27,6 +29,13 @@ fn main() {
     let args: Vec<String> = env::args().skip(1).collect();
     let sbt_command_line = args.join(" ");
 
+    match run(sbt_command_line) {
+        Ok(_) => (), // yay
+        Err(e) => render_log(1, e.message)
+    }
+}
+
+fn run(sbt_command_line: String) -> Result<(), SbtClientError> {
     // TODO use serde_json instead of hand-writing json like a loser
     let json_rpc_command = format!(
         r#"{{ "jsonrpc": "2.0", "id": 1, "method": "sbt/exec", "params": {{ "commandLine": "{}" }} }}"#,
@@ -35,20 +44,15 @@ fn main() {
 
     // TODO read the socket URI from active.json
     // TODO Fork an sbt server if no project/target/active.json file exists
-    let mut stream = UnixStream::connect("/Users/chris/.sbt/1.0/server/9f10750f3bdedd1e263b/sock").unwrap();
-    stream.set_read_timeout(None).unwrap();
+    let mut stream = create_stream("/Users/chris/.sbt/1.0/server/9f10750f3bdedd1e263b/sock")?;
 
-    stream.write_all(&with_content_length_header(&json_rpc_command)).unwrap();
+    stream.write_all(&with_content_length_header(&json_rpc_command))
+        .map_err(|e| detailed_error("Failed to write command to Unix socket", e))?;
 
     let mut received_result = false;
     while !received_result {
-        let mut headers = Vec::with_capacity(1024);
-        let mut one_byte = [0];
-        while !ends_with_double_newline(&headers) {
-            stream.read(&mut one_byte[..]).unwrap();
-            headers.push(one_byte[0]);
-        }
-        let content_length = extract_content_length(String::from_utf8(headers).unwrap());
+        let headers = read_headers(&stream).unwrap();
+        let content_length = extract_content_length(headers).unwrap();
         let mut buf: Vec<u8> = Vec::with_capacity(content_length);
         buf.resize(content_length, 0);
         let bytes_read = stream.read(&mut buf).unwrap();
@@ -61,6 +65,38 @@ fn main() {
         }
         render(message);
     }
+    Ok(())
+}
+
+fn create_stream(socket_file: &str) -> Result<UnixStream, SbtClientError> {
+    let stream = UnixStream::connect(socket_file)
+        .map_err(|e| detailed_error("Failed to connect to Unix socket", e))?;
+    stream.set_read_timeout(None)
+        .map_err(|e| detailed_error("Failed to set read timeout on Unix socket", e))?;
+    Ok(stream)
+}
+
+fn read_headers(mut stream: &UnixStream) -> Result<String, SbtClientError> {
+    let mut headers = Vec::with_capacity(1024);
+    let mut one_byte = [0];
+    while !ends_with_double_newline(&headers) {
+        try! (
+            stream.read(&mut one_byte[..])
+                .map(|_| headers.push(one_byte[0]))
+                .map_err(|e| detailed_error("Failed to read next byte of headers", e))
+        )
+    }
+    String::from_utf8(headers)
+        .map_err(|e| detailed_error("Failed to read headers as a UTF-8 string", e))
+}
+
+fn error(message: &str) -> SbtClientError {
+    SbtClientError { message: message.to_string() }
+}
+
+fn detailed_error<E: Display>(message: &str, e: E) -> SbtClientError {
+    let error_message = format!("{}. Details: {}", message, e);
+    error(&error_message)
 }
 
 fn with_content_length_header(command: &str) -> Vec<u8> {
@@ -71,10 +107,16 @@ fn ends_with_double_newline(vec: &Vec<u8>) -> bool {
     vec.ends_with(&[13, 10, 13, 10])
 }
 
-fn extract_content_length(headers: String) -> usize {
-    let content_length_header_regex = Regex::new(r"Content-Length: (\d+)").unwrap();
-    let captures = content_length_header_regex.captures(&headers).unwrap();
-    captures.get(1).unwrap().as_str().parse::<usize>().unwrap()
+fn extract_content_length(headers: String) -> Result<usize, SbtClientError> {
+    // TODO move this regex somewhere
+    let content_length_header_regex = Regex::new(r"Content-Length: (\d+)")
+        .map_err(|e| detailed_error("Failed to extract content length from headers", e))?;
+    let captures = content_length_header_regex.captures(&headers)
+        .ok_or(error("Failed to extract content length from headers"))?;
+    let capture = captures.get(1)
+        .ok_or(error("Failed to extract content length from headers"))?;
+    capture.as_str().parse::<usize>()
+        .map_err(|e| detailed_error("Failed to extract content length from headers", e))
 }
 
 fn render(message: Message) {

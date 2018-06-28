@@ -1,3 +1,7 @@
+#[derive(Debug)]
+pub struct SbtClientError {
+    pub message: String
+}
 
 #[derive(Deserialize, Debug)]
 pub struct CommandResult {
