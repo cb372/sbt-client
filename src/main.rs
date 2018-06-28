@@ -18,24 +18,22 @@ use sbtclient::receive::HeaderParser;
 use std::env;
 
 fn main() {
-
-    // TODO check the working directory is an sbt project (i.e. has a `project` directory)
-
-    // TODO show usage if no args given
     let args: Vec<String> = env::args().skip(1).collect();
-    let sbt_command_line = args.join(" ");
+    if args.len() == 0 {
+        println!("Usage: sbt-client <command line to send to sbt>")
+    } else {
+        let sbt_command_line = args.join(" ");
 
-    match run(sbt_command_line) {
-        Ok(_) => (), // yay
-        Err(e) => print_log(1, e.message)
+        match run(sbt_command_line) {
+            Ok(_) => (), // yay
+            Err(e) => print_log(1, e.message)
+        }
     }
 }
 
 fn run(sbt_command_line: String) -> Result<(), SbtClientError> {
-
-    // TODO read the socket URI from active.json
-    // TODO Fork an sbt server if no project/target/active.json file exists
-    let mut stream = socket::create_stream("/Users/chris/.sbt/1.0/server/9f10750f3bdedd1e263b/sock")?;
+    let working_directory = env::current_dir().unwrap();
+    let mut stream = socket::create_stream(working_directory.as_path())?;
 
     send::send_command(sbt_command_line, &mut stream)?;
 

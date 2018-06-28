@@ -71,3 +71,4 @@ fn ends_with_double_newline(vec: &Vec<u8>) -> bool {
     vec.ends_with(&[13, 10, 13, 10])
 }
 
+// TODO test
