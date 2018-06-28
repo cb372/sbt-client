@@ -35,6 +35,7 @@ fn main() {
 }
 
 fn run(sbt_command_line: String) -> Result<(), SbtClientError> {
+    let content_length_header_regex = Regex::new(r"Content-Length: (\d+)").unwrap();
 
     // TODO read the socket URI from active.json
     // TODO Fork an sbt server if no project/target/active.json file exists
@@ -50,25 +51,12 @@ fn run(sbt_command_line: String) -> Result<(), SbtClientError> {
     };
     let command_json = serde_json::to_string(&command)
         .map_err(|e| detailed_error("Failed to serialize command to JSON", e))?;
+
     stream.write_all(&with_content_length_header(&command_json))
         .map_err(|e| detailed_error("Failed to write command to Unix socket", e))?;
 
-    let mut received_result = false;
-    while !received_result {
-        let headers = read_headers(&stream).unwrap();
-        let content_length = extract_content_length(headers).unwrap();
-        let mut buf: Vec<u8> = Vec::with_capacity(content_length);
-        buf.resize(content_length, 0);
-        let bytes_read = stream.read(&mut buf).unwrap();
-        // TODO loop while bytes read so far < content_length
-        let raw_json = String::from_utf8(buf[0..bytes_read].to_vec()).unwrap();
-        let message: Message = serde_json::from_str(&raw_json).unwrap();
-        match message {
-            Response { id, .. } if id == 1 => received_result = true,
-            _ => ()
-        }
-        render(message);
-    }
+    while !process_next_message(&stream, &content_length_header_regex)? {}
+
     Ok(())
 }
 
@@ -94,13 +82,27 @@ fn read_headers(mut stream: &UnixStream) -> Result<String, SbtClientError> {
         .map_err(|e| detailed_error("Failed to read headers as a UTF-8 string", e))
 }
 
-fn error(message: &str) -> SbtClientError {
-    SbtClientError { message: message.to_string() }
-}
-
-fn detailed_error<E: Display>(message: &str, e: E) -> SbtClientError {
-    let error_message = format!("{}. Details: {}", message, e);
-    error(&error_message)
+/*
+ * Receives, deserializes and renders the next message from the server.
+ * Returns true if it was the final message in response to our command, meaning we can stop looping.
+ */
+fn process_next_message(mut stream: &UnixStream, content_length_header_regex: &Regex) -> Result<bool, SbtClientError> {
+    let headers = read_headers(&stream)?;
+    let content_length = extract_content_length(headers, &content_length_header_regex)?;
+    let mut buf: Vec<u8> = Vec::with_capacity(content_length);
+    buf.resize(content_length, 0);
+    stream.read_exact(&mut buf)
+        .map_err(|e| detailed_error("Failed to read bytes from Unix socket", e))?;
+    let raw_json = String::from_utf8(buf.to_vec())
+        .map_err(|e| detailed_error("Failed to decode message as UTF-8 string", e))?;
+    let message: Message = serde_json::from_str(&raw_json)
+        .map_err(|e| detailed_error(&format!("Failed to deserialize message from JSON '{}'", raw_json), e))?;
+    let received_result = match message {
+        Response { id, .. } if id == 1 => true,
+        _ => false
+    };
+    render(message);
+    Ok(received_result)
 }
 
 fn with_content_length_header(command: &str) -> Vec<u8> {
@@ -111,10 +113,7 @@ fn ends_with_double_newline(vec: &Vec<u8>) -> bool {
     vec.ends_with(&[13, 10, 13, 10])
 }
 
-fn extract_content_length(headers: String) -> Result<usize, SbtClientError> {
-    // TODO move this regex somewhere
-    let content_length_header_regex = Regex::new(r"Content-Length: (\d+)")
-        .map_err(|e| detailed_error("Failed to extract content length from headers", e))?;
+fn extract_content_length(headers: String, content_length_header_regex: &Regex) -> Result<usize, SbtClientError> {
     let captures = content_length_header_regex.captures(&headers)
         .ok_or(error("Failed to extract content length from headers"))?;
     let capture = captures.get(1)
@@ -142,5 +141,14 @@ fn render_log(level: u8, message: String) {
 
 fn render_response(status: String, _exit_code: u8) {
     println!("[success] {}", Colour::Green.paint(status))
+}
+
+fn error(message: &str) -> SbtClientError {
+    SbtClientError { message: message.to_string() }
+}
+
+fn detailed_error<E: Display>(message: &str, e: E) -> SbtClientError {
+    let error_message = format!("{}. Details: {}", message, e);
+    error(&error_message)
 }
 
