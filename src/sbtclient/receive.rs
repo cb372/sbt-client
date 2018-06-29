@@ -58,7 +58,7 @@ fn read_headers<S: Read>(stream: &mut S) -> Result<String, SbtClientError> {
     let mut one_byte = [0];
     while !ends_with_double_newline(&headers) {
         try! (
-            stream.read(&mut one_byte[..])
+            stream.read_exact(&mut one_byte)
                 .map(|_| headers.push(one_byte[0]))
                 .map_err(|e| detailed_error("Failed to read next byte of headers", e))
         )
@@ -71,4 +71,62 @@ fn ends_with_double_newline(vec: &Vec<u8>) -> bool {
     vec.ends_with(&[13, 10, 13, 10])
 }
 
-// TODO test
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use sbtclient::*;
+    use sbtclient::Message::*;
+
+    #[test]
+    fn receive_successful_result() {
+        let mut lsp_message = "Content-Type: application/vscode-jsonrpc; charset=utf-8\r
+Content-Length: 126\r
+\r
+{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"status\":\"Done\",\"channelName\":\"network-1\",\"execId\":1,\"commandQueue\":[\"shell\"],\"exitCode\":0}}".as_bytes();
+
+        let assertion = |msg: Message| {
+            let expected = Response {
+                id: 1,
+                result: CommandResult {
+                    status: "Done".to_string(),
+                    exit_code: 0
+                }
+            };
+            assert_eq!(expected, msg);
+        };
+
+        let received_final_message = receive_next_message(
+            &mut lsp_message,
+            &HeaderParser::new(),
+            assertion).unwrap();
+
+        assert_eq!(true, received_final_message);
+    }
+
+    #[test]
+    fn receive_log_message() {
+        let mut lsp_message = "Content-Type: application/vscode-jsonrpc; charset=utf-8\r
+Content-Length: 89\r
+\r
+{\"jsonrpc\":\"2.0\",\"method\":\"window/logMessage\",\"params\":{\"type\":4,\"message\":\"Processing\"}}".as_bytes();
+
+        let assertion = |msg: Message| {
+            let expected = LogMessage {
+                method: "window/logMessage".to_string(),
+                params: LogMessageParams {
+                    type_: 4,
+                    message: "Processing".to_string(),
+                }
+            };
+            assert_eq!(expected, msg);
+        };
+
+        let received_final_message = receive_next_message(
+            &mut lsp_message,
+            &HeaderParser::new(),
+            assertion).unwrap();
+
+        assert_eq!(false, received_final_message);
+    }
+
+}
