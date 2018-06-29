@@ -1,6 +1,6 @@
 extern crate ansi_term;
 
-use sbtclient::Message;
+use sbtclient::{Message, Diagnostic};
 use sbtclient::Message::*;
 use ansi_term::Colour;
 
@@ -9,7 +9,7 @@ pub fn print_message(message: Message) {
         LogMessage { method: _, params } => print_log(params.type_, params.message),
         SuccessResponse { id: _, result } => print_success_response(result.status, result.exit_code),
         ErrorResponse { id: _, error } => print_error_response(error.code, error.message),
-        PublishDiagnostics { .. } => () // TODO
+        PublishDiagnostics { method: _, params } => print_diagnostics(params.uri, params.diagnostics)
     }
 }
 
@@ -33,5 +33,22 @@ fn print_error_response(code: i32, message: String) {
         message
     );
     println!("[{}] {}", Colour::Red.paint("error"), full_message)
+}
+
+fn print_diagnostics(uri: String, diagnostics: Vec<Diagnostic>) {
+    for diagnostic in &diagnostics {
+        print_diagnostic(&uri, diagnostic);
+    }
+}
+
+fn print_diagnostic(uri: &String, diagnostic: &Diagnostic) {
+    let message = format!(
+        "{}:{}:{}: {}",
+        uri,
+        diagnostic.range.start.line,
+        diagnostic.range.start.character,
+        diagnostic.message
+    );
+    print_log(diagnostic.severity, message);
 }
 
