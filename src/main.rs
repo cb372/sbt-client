@@ -12,7 +12,7 @@ use sbtclient::SbtClientError;
 use sbtclient::socket;
 use sbtclient::send;
 use sbtclient::receive;
-use sbtclient::print::{print_message,print_log};
+use sbtclient::print::{Printer, print_log};
 use sbtclient::receive::HeaderParser;
 
 use std::env;
@@ -38,7 +38,8 @@ fn run(sbt_command_line: String) -> Result<(), SbtClientError> {
     send::send_command(sbt_command_line, &mut stream)?;
 
     let header_parser = HeaderParser::new();
-    while !receive::receive_next_message(&mut stream, &header_parser, print_message)? {}
+    let mut printer = Printer::new();
+    while !receive::receive_next_message(&mut stream, &header_parser, &mut printer)? {}
 
     Ok(())
 }

@@ -7,6 +7,10 @@ use sbtclient::{Message, SbtClientError};
 use sbtclient::Message::{SuccessResponse,ErrorResponse};
 use sbtclient::util::{error, detailed_error};
 
+pub trait MessageHandler {
+    fn handle(&mut self, message: Message);
+}
+
 pub struct HeaderParser {
     content_length_header_regex: Regex
 }
@@ -31,10 +35,12 @@ impl HeaderParser {
 }
 
 /*
- * Receives, deserializes and renders the next message from the server.
+ * Receives, deserializes and handles the next message from the server.
  * Returns true if it was the final message in response to our command, meaning we can stop looping.
  */
-pub fn receive_next_message<S: Read>(stream: &mut S, header_parser: &HeaderParser, handle_message: fn(Message) -> ()) -> Result<bool, SbtClientError> {
+pub fn receive_next_message<S: Read, H: MessageHandler>(stream: &mut S,
+                                                        header_parser: &HeaderParser,
+                                                        handler: &mut H) -> Result<bool, SbtClientError> {
     let headers = read_headers(stream)?;
     let content_length = header_parser.extract_content_length(headers)?;
     let mut buf: Vec<u8> = Vec::with_capacity(content_length);
@@ -50,7 +56,7 @@ pub fn receive_next_message<S: Read>(stream: &mut S, header_parser: &HeaderParse
         ErrorResponse { id, .. } if id == 1 => true,
         _ => false
     };
-    handle_message(message);
+    handler.handle(message);
     Ok(received_result)
 }
 
