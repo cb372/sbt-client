@@ -45,8 +45,8 @@ pub struct LogMessageParams {
 
 #[derive(Deserialize, Debug, PartialEq, Eq, Hash, Clone)]
 pub struct Position {
-    line: i32,
-    character: i32
+    line: usize,
+    character: usize
 }
 
 #[derive(Deserialize, Debug, PartialEq, Eq, Hash, Clone)]
