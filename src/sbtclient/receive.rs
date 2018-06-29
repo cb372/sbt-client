@@ -156,4 +156,55 @@ Content-Length: 89\r
         assert_eq!(false, received_final_message);
     }
 
+    #[test]
+    fn receive_compilation_errors() {
+        let mut lsp_message = "Content-Type: application/vscode-jsonrpc; charset=utf-8\r
+Content-Length: 609\r
+\r
+{\"jsonrpc\":\"2.0\",\"method\":\"textDocument/publishDiagnostics\",\"params\":{\"uri\":\"file:///Users/chris/code/cats-retry/modules/core/src/main/scala/retry/Fibonacci.scala\",\"diagnostics\":[{\"range\":{\"start\":{\"line\":17,\"character\":21},\"end\":{\"line\":17,\"character\":22}},\"severity\":1,\"source\":\"sbt\",\"message\":\"value * is not a member of Any\"},{\"range\":{\"start\":{\"line\":13,\"character\":28},\"end\":{\"line\":13,\"character\":29}},\"severity\":1,\"source\":\"sbt\",\"message\":\"not found: type Longg\"},{\"range\":{\"start\":{\"line\":5,\"character\":8},\"end\":{\"line\":5,\"character\":9}},\"severity\":1,\"source\":\"sbt\",\"message\":\"not found: value m\"}]}}".as_bytes();
+
+        let assertion = |msg: Message| {
+            let expected = PublishDiagnostics {
+                method: "textDocument/publishDiagnostics".to_string(),
+                params: PublishDiagnosticsParams {
+                    uri: "file:///Users/chris/code/cats-retry/modules/core/src/main/scala/retry/Fibonacci.scala".to_string(),
+                    diagnostics: vec! [
+                        Diagnostic {
+                            range: Range {
+                                start: Position { line: 17, character: 21 },
+                                end:   Position { line: 17, character: 22 }
+                            },
+                            severity: 1,
+                            message: "value * is not a member of Any".to_string()
+                        },
+                        Diagnostic {
+                            range: Range {
+                                start: Position { line: 13, character: 28 },
+                                end:   Position { line: 13, character: 29 }
+                            },
+                            severity: 1,
+                            message: "not found: type Longg".to_string()
+                        },
+                        Diagnostic {
+                            range: Range {
+                                start: Position { line: 5, character: 8 },
+                                end:   Position { line: 5, character: 9 }
+                            },
+                            severity: 1,
+                            message: "not found: value m".to_string()
+                        }
+                    ]
+                }
+            };
+            assert_eq!(expected, msg);
+        };
+
+        let received_final_message = receive_next_message(
+            &mut lsp_message,
+            &HeaderParser::new(),
+            assertion).unwrap();
+
+        assert_eq!(false, received_final_message);
+    }
+
 }

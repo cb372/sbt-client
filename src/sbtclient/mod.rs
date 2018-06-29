@@ -44,7 +44,20 @@ pub struct LogMessageParams {
 }
 
 #[derive(Deserialize, Debug, PartialEq)]
+pub struct Position {
+    line: i32,
+    character: i32
+}
+
+#[derive(Deserialize, Debug, PartialEq)]
+pub struct Range {
+    start: Position,
+    end: Position
+}
+
+#[derive(Deserialize, Debug, PartialEq)]
 pub struct Diagnostic {
+    range: Range,
     severity: u8,
     message: String
 }
