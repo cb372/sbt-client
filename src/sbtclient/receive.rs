@@ -4,7 +4,7 @@ extern crate regex;
 use regex::Regex;
 use std::io::Read;
 use sbtclient::{Message, SbtClientError};
-use sbtclient::Message::Response;
+use sbtclient::Message::{SuccessResponse,ErrorResponse};
 use sbtclient::util::{error, detailed_error};
 
 pub struct HeaderParser {
@@ -46,7 +46,8 @@ pub fn receive_next_message<S: Read>(stream: &mut S, header_parser: &HeaderParse
     let message: Message = serde_json::from_str(&raw_json)
         .map_err(|e| detailed_error(&format!("Failed to deserialize message from JSON '{}'", raw_json), e))?;
     let received_result = match message {
-        Response { id, .. } if id == 1 => true,
+        SuccessResponse { id, .. } if id == 1 => true,
+        ErrorResponse { id, .. } if id == 1 => true,
         _ => false
     };
     handle_message(message);
@@ -85,11 +86,37 @@ Content-Length: 126\r
 {\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"status\":\"Done\",\"channelName\":\"network-1\",\"execId\":1,\"commandQueue\":[\"shell\"],\"exitCode\":0}}".as_bytes();
 
         let assertion = |msg: Message| {
-            let expected = Response {
+            let expected = SuccessResponse {
                 id: 1,
                 result: CommandResult {
                     status: "Done".to_string(),
                     exit_code: 0
+                }
+            };
+            assert_eq!(expected, msg);
+        };
+
+        let received_final_message = receive_next_message(
+            &mut lsp_message,
+            &HeaderParser::new(),
+            assertion).unwrap();
+
+        assert_eq!(true, received_final_message);
+    }
+
+    #[test]
+    fn receive_error_response() {
+        let mut lsp_message = "Content-Type: application/vscode-jsonrpc; charset=utf-8\r
+Content-Length: 61\r
+\r
+{\"jsonrpc\":\"2.0\",\"id\":1,\"error\":{\"code\":-33000,\"message\":\"\"}}".as_bytes();
+
+        let assertion = |msg: Message| {
+            let expected = ErrorResponse {
+                id: 1,
+                error: ErrorDetails {
+                    code: -33000,
+                    message: "".to_string(),
                 }
             };
             assert_eq!(expected, msg);

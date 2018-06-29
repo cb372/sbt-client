@@ -31,6 +31,12 @@ pub struct CommandResult {
 }
 
 #[derive(Deserialize, Debug, PartialEq)]
+pub struct ErrorDetails {
+    pub code: i32,
+    pub message: String
+}
+
+#[derive(Deserialize, Debug, PartialEq)]
 pub struct LogMessageParams {
     #[serde(rename = "type")]
     pub type_: u8,
@@ -52,7 +58,8 @@ pub struct PublishDiagnosticsParams {
 #[derive(Deserialize, Debug, PartialEq)]
 #[serde(untagged)]
 pub enum Message {
-    Response { id: i32, result: CommandResult },
+    SuccessResponse { id: i32, result: CommandResult },
+    ErrorResponse { id: i32, error: ErrorDetails },
     LogMessage { method: String, params: LogMessageParams },
     PublishDiagnostics { method: String, params: PublishDiagnosticsParams }
 }
