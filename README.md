@@ -29,13 +29,16 @@ There are a couple of ways to install `sbt-client`:
 
 ## How to use
 
-In the root directory of an sbt project, run `sbt-client <some sbt command>.
+In the root directory of an sbt project, run `sbt-client <some sbt command>`.
 
 e.g. `sbt-client clean`.
 
 If sbt is not running, it will automatically start it for you and keep it
 running in the background. So the next time you run `sbt-client` it will be much
 more snappy.
+
+Note: this assumes that `sbt` is on your `$PATH`. To start the server, sbt-client
+simply runs `sbt` with no arguments.
 
 ## Examples
 
