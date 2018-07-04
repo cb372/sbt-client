@@ -84,6 +84,16 @@ mod tests {
     use sbtclient::*;
     use sbtclient::Message::*;
 
+    struct TestMessageHandler {
+        expected: Message
+    }
+
+    impl MessageHandler for TestMessageHandler {
+        fn handle(&mut self, message: Message) {
+            assert_eq!(self.expected, message);
+        }
+    }
+
     #[test]
     fn receive_successful_result() {
         let mut lsp_message = "Content-Type: application/vscode-jsonrpc; charset=utf-8\r
@@ -91,21 +101,20 @@ Content-Length: 126\r
 \r
 {\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"status\":\"Done\",\"channelName\":\"network-1\",\"execId\":1,\"commandQueue\":[\"shell\"],\"exitCode\":0}}".as_bytes();
 
-        let assertion = |msg: Message| {
-            let expected = SuccessResponse {
+        let mut handler = TestMessageHandler {
+            expected: SuccessResponse {
                 id: 1,
                 result: CommandResult {
                     status: "Done".to_string(),
                     exit_code: 0
                 }
-            };
-            assert_eq!(expected, msg);
+            }
         };
 
         let received_final_message = receive_next_message(
             &mut lsp_message,
             &HeaderParser::new(),
-            assertion).unwrap();
+            &mut handler).unwrap();
 
         assert_eq!(true, received_final_message);
     }
@@ -117,21 +126,20 @@ Content-Length: 61\r
 \r
 {\"jsonrpc\":\"2.0\",\"id\":1,\"error\":{\"code\":-33000,\"message\":\"\"}}".as_bytes();
 
-        let assertion = |msg: Message| {
-            let expected = ErrorResponse {
+        let mut handler = TestMessageHandler {
+            expected: ErrorResponse {
                 id: 1,
                 error: ErrorDetails {
                     code: -33000,
                     message: "".to_string(),
                 }
-            };
-            assert_eq!(expected, msg);
+            }
         };
 
         let received_final_message = receive_next_message(
             &mut lsp_message,
             &HeaderParser::new(),
-            assertion).unwrap();
+            &mut handler).unwrap();
 
         assert_eq!(true, received_final_message);
     }
@@ -143,21 +151,20 @@ Content-Length: 89\r
 \r
 {\"jsonrpc\":\"2.0\",\"method\":\"window/logMessage\",\"params\":{\"type\":4,\"message\":\"Processing\"}}".as_bytes();
 
-        let assertion = |msg: Message| {
-            let expected = LogMessage {
+        let mut handler = TestMessageHandler {
+            expected: LogMessage {
                 method: "window/logMessage".to_string(),
                 params: LogMessageParams {
                     type_: 4,
                     message: "Processing".to_string(),
                 }
-            };
-            assert_eq!(expected, msg);
+            }
         };
 
         let received_final_message = receive_next_message(
             &mut lsp_message,
             &HeaderParser::new(),
-            assertion).unwrap();
+            &mut handler).unwrap();
 
         assert_eq!(false, received_final_message);
     }
@@ -169,8 +176,8 @@ Content-Length: 609\r
 \r
 {\"jsonrpc\":\"2.0\",\"method\":\"textDocument/publishDiagnostics\",\"params\":{\"uri\":\"file:///Users/chris/code/cats-retry/modules/core/src/main/scala/retry/Fibonacci.scala\",\"diagnostics\":[{\"range\":{\"start\":{\"line\":17,\"character\":21},\"end\":{\"line\":17,\"character\":22}},\"severity\":1,\"source\":\"sbt\",\"message\":\"value * is not a member of Any\"},{\"range\":{\"start\":{\"line\":13,\"character\":28},\"end\":{\"line\":13,\"character\":29}},\"severity\":1,\"source\":\"sbt\",\"message\":\"not found: type Longg\"},{\"range\":{\"start\":{\"line\":5,\"character\":8},\"end\":{\"line\":5,\"character\":9}},\"severity\":1,\"source\":\"sbt\",\"message\":\"not found: value m\"}]}}".as_bytes();
 
-        let assertion = |msg: Message| {
-            let expected = PublishDiagnostics {
+        let mut handler = TestMessageHandler {
+            expected: PublishDiagnostics {
                 method: "textDocument/publishDiagnostics".to_string(),
                 params: PublishDiagnosticsParams {
                     uri: "file:///Users/chris/code/cats-retry/modules/core/src/main/scala/retry/Fibonacci.scala".to_string(),
@@ -201,14 +208,13 @@ Content-Length: 609\r
                         }
                     ]
                 }
-            };
-            assert_eq!(expected, msg);
+            }
         };
 
         let received_final_message = receive_next_message(
             &mut lsp_message,
             &HeaderParser::new(),
-            assertion).unwrap();
+            &mut handler).unwrap();
 
         assert_eq!(false, received_final_message);
     }
