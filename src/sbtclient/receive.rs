@@ -136,12 +136,12 @@ Content-Length: 61\r
             }
         };
 
-        let received_final_message = receive_next_message(
+        let result = receive_next_message(
             &mut lsp_message,
             &HeaderParser::new(),
-            &mut handler).unwrap();
+            &mut handler);
 
-        assert_eq!(true, received_final_message);
+        assert_eq!(true, result.is_err());
     }
 
     #[test]
