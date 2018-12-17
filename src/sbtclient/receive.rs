@@ -51,13 +51,13 @@ pub fn receive_next_message<S: Read, H: MessageHandler>(stream: &mut S,
         .map_err(|e| detailed_error("Failed to decode message as UTF-8 string", e))?;
     let message: Message = serde_json::from_str(&raw_json)
         .map_err(|e| detailed_error(&format!("Failed to deserialize message from JSON '{}'", raw_json), e))?;
-    let received_result = (match message {
+    let received_result = match message {
         SuccessResponse { id, .. } if id == 1 => Ok(true),
         ErrorResponse { id, .. } if id == 1 => Err(error("Error from sbt")),
         _ => Ok(false)
-    })?;
+    };
     handler.handle(message);
-    Ok(received_result)
+    received_result
 }
 
 fn read_headers<S: Read>(stream: &mut S) -> Result<String, SbtClientError> {
