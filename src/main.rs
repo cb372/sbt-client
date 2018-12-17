@@ -16,6 +16,7 @@ use sbtclient::print::{Printer, print_log};
 use sbtclient::receive::HeaderParser;
 
 use std::env;
+use std::process;
 
 fn main() {
     let args: Vec<String> = env::args().skip(1).collect();
@@ -24,10 +25,13 @@ fn main() {
     } else {
         let sbt_command_line = args.join(" ");
 
-        match run(sbt_command_line) {
-            Ok(_) => (), // yay
-            Err(e) => print_log(1, e.message)
-        }
+        process::exit(match run(sbt_command_line) {
+            Ok(_) => 0, // yay
+            Err(e) => {
+                print_log(1, e.message);
+                1
+            }
+        })
     }
 }
 
