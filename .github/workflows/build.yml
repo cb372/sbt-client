@@ -1,0 +1,39 @@
+name: Build
+
+on:
+  release:
+    types: [created]
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os:
+          - macOS-latest
+          - ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    name: Build ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@master
+
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+      - uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --release
+
+      - name: Upload to GitHub Release
+        run: |
+          TAG=${GITHUB_REF##*/}
+          TARGET=`rustup target list | grep default | cut -d' ' -f1`
+          cd ./target/release/
+          BASENAME=sbt-client-$TAG-$TARGET
+          mv sbt-client $BASENAME
+          gzip -f $BASENAME
+          FILENAME=$BASENAME.gz
+          AUTH="${{ format('Authorization: token {0}', secrets.GITHUB_TOKEN ) }}"
+          BASEURL=`echo "${{ github.event.release.upload_url }}" | sed 's/{.*}$/?name=/'`
+          curl -v -H "$AUTH" -H "Content-Type: $(file -b --mime-type $FILENAME)" --data-binary @$FILENAME "$BASEURL$FILENAME"
