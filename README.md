@@ -7,25 +7,20 @@ write a thin client without the JVM startup overhead.
 
 ## How to install
 
-There are a couple of ways to install `sbt-client`:
+Binaries for Mac and Linux are available on the [releases
+page](https://github.com/cb372/sbt-client/releases).
 
-1. If you are on a Mac and you trust me enough to download a random binary file
-   when I tell you to, you can [download the binary from the GitHub
-   release](https://github.com/cb372/sbt-client/releases/download/v0.1.0/sbt-client).
+Download and extract the appropriate file for your platform, make the file
+executable and put it on your `PATH` somewhere.
 
-2. If you don't mind installing Rust, you can download the latest version by
-   installing from source.
+e.g.
 
-### Installing from source
-
-1. [Install Rust](https://www.rust-lang.org/en-US/install.html) (on a Mac this
-   is simply `brew install rust`)
-
-2. Check that `~/.cargo/bin` is on your `$PATH`.
-
-3. Clone this repo.
-
-4. Run `cargo install`. This will create `~/.cargo/bin/sbt-client`.
+```
+wget https://github.com/cb372/sbt-client/releases/download/v0.1.2/sbt-client-v0.1.2-x86_64-apple-darwin.gz
+gzip -d sbt-client-v0.1.2-x86_64-apple-darwin.gz
+chmod u+x sbt-client-v0.1.2-x86_64-apple-darwin.gz
+mv sbt-client-v0.1.2-x86_64-apple-darwin.gz ~/bin/sbt-client
+```
 
 ## How to use
 
