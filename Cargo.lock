@@ -82,7 +82,7 @@ dependencies = [
 
 [[package]]
 name = "sbt-client"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "ansi_term 0.11.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "regex 1.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
