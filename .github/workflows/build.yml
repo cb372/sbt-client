@@ -28,7 +28,7 @@ jobs:
       - name: Upload to GitHub Release
         run: |
           TAG=${GITHUB_REF##*/}
-          TARGET=`rustup target list | grep default | cut -d' ' -f1`
+          TARGET=`rustup target list | grep installed | cut -d' ' -f1`
           cd ./target/release/
           BASENAME=sbt-client-$TAG-$TARGET
           mv sbt-client $BASENAME
