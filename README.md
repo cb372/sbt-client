@@ -1,3 +1,9 @@
+# DEPRECATED
+
+Don't use this, use [sbtn](https://github.com/sbt/sbt/pull/5620). Since sbt v1.4.0, there is an official native client available.
+
+---
+
 # sbt-client
 
 A thin client for [sbt](https://www.scala-sbt.org/).
